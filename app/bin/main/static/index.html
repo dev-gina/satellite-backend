@@ -12,14 +12,15 @@
     <section>
       <h2>1. 파일 목록 불러오기</h2>
       <button id="listFilesBtn">S3에서 파일 목록 가져오기</button>
-      <select id="fileList" size="8"></select>
+      <p id="selectedCount">선택된 파일: 0개</p>
+      <div id="fileCheckboxList"></div>
     </section>
 
     <section>
       <h2>2. 작업 수행</h2>
       <button id="saveMetadataBtn">메타데이터 저장</button>
       <button id="convertCogBtn">COG 변환</button>
-      <button id="uploadResultBtn">변환 + 업로드 (자동)</button>
+      <button id="uploadResultBtn">변환 + 업로드</button>
     </section>
 
     <section>
@@ -36,23 +37,45 @@
       log.textContent += `\n${message}`;
     }
 
-    // 파일 목록 가져오기 (원본 TIFF만)
+    // 체크박스로 파일 목록 그려주기
+    function renderCheckboxFileList(fileList) {
+      const container = document.getElementById('fileCheckboxList');
+      container.innerHTML = '';
+      document.getElementById('selectedCount').textContent = '선택된 파일: 0개';
+
+      fileList.forEach(file => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = file.name;
+        checkbox.addEventListener('change', updateSelectedCount);
+
+        const label = document.createElement('label');
+        label.className = 'file-checkbox-item';
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${file.name}`));
+        container.appendChild(label);
+      });
+    }
+
+    function updateSelectedCount() {
+      const count = document.querySelectorAll('#fileCheckboxList input[type="checkbox"]:checked').length;
+      document.getElementById('selectedCount').textContent = `선택된 파일: ${count}개`;
+    }
+
+    // 선택된 파일 이름 배열로 가져오기
+    function getSelectedFiles() {
+      const checkboxes = document.querySelectorAll('#fileCheckboxList input[type="checkbox"]:checked');
+      return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    // 파일 목록 가져오기
     document.getElementById('listFilesBtn').addEventListener('click', function() {
-      document.getElementById('resultLog').textContent = "파일 목록 가져오는 중...";
 
       fetch(`${apiUrl}/satellite-images/source-list`)
         .then(response => response.json())
         .then(fileList => {
-          const fileListSelect = document.getElementById('fileList');
-          fileListSelect.innerHTML = '';
-
-          fileList.forEach(file => {
-            const option = document.createElement('option');
-            option.value = file.name;
-            option.textContent = file.name;
-            fileListSelect.appendChild(option);
-          });
-
+          renderCheckboxFileList(fileList); 
           appendLog("파일 목록 로드 완료");
         })
         .catch(() => {
@@ -61,77 +84,76 @@
     });
 
     // 메타데이터 저장
-    document.getElementById('saveMetadataBtn').addEventListener('click', function() {
-      const selectedFile = document.getElementById('fileList').value;
-      if (!selectedFile) return alert('파일을 선택하세요.');
+    document.getElementById('saveMetadataBtn').addEventListener('click', async function() {
+      const selectedFiles = getSelectedFiles();
+      if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
-      appendLog(`메타데이터 저장 요청 중: ${selectedFile}`);
+      for (const fileName of selectedFiles) {
 
-      fetch(`${apiUrl}/satellite-images/metadata`, {
-        method: 'POST',
-        body: JSON.stringify({ name: selectedFile }),
-        headers: { 'Content-Type': 'application/json' }
-      })
-        .then(response => {
-          if (response.ok) {
-            appendLog(`메타데이터 저장 완료: ${selectedFile}`);
-          } else {
-            appendLog("메타데이터 저장 실패");
-          }
+        const response = await fetch(`${apiUrl}/satellite-images/metadata`, {
+          method: 'POST',
+          body: JSON.stringify({ name: fileName }),
+          headers: { 'Content-Type': 'application/json' }
         });
+
+        if (response.ok) {
+          appendLog(`메타데이터 저장 완료: ${fileName}`);
+        } else {
+          appendLog(`메타데이터 저장 실패: ${fileName}`);
+        }
+      }
     });
 
     // COG 변환
-    document.getElementById('convertCogBtn').addEventListener('click', function() {
-      const selectedFile = document.getElementById('fileList').value;
-      if (!selectedFile) return alert('파일을 선택하세요.');
+    document.getElementById('convertCogBtn').addEventListener('click', async function() {
+      const selectedFiles = getSelectedFiles();
+      if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
-      appendLog(`COG 변환 요청 중: ${selectedFile}`);
+      for (const fileName of selectedFiles) {
 
-      fetch(`${apiUrl}/satellite-images/convert`, {
-        method: 'POST',
-        body: JSON.stringify({ name: selectedFile }),
-        headers: { 'Content-Type': 'application/json' }
-      })
-        .then(response => {
-          if (response.ok) {
-            appendLog(`COG 변환 완료: ${selectedFile}`);
-          } else {
-            appendLog("COG 변환 실패");
-          }
+        const response = await fetch(`${apiUrl}/satellite-images/convert`, {
+          method: 'POST',
+          body: JSON.stringify({ name: fileName }),
+          headers: { 'Content-Type': 'application/json' }
         });
+
+        if (response.ok) {
+          appendLog(`COG 변환 완료: ${fileName}`);
+        } else {
+          appendLog(`COG 변환 실패: ${fileName}`);
+        }
+      }
     });
 
-    // COG 변환 + 업로드 (자동 처리)
+    // 변환 + 업로드 (자동)
     document.getElementById('uploadResultBtn').addEventListener('click', async function () {
-      const selectedFile = document.getElementById('fileList').value;
-      if (!selectedFile) return alert('파일을 선택하세요.');
+      const selectedFiles = getSelectedFiles();
+      if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
-      appendLog(`COG 변환 시작: ${selectedFile}`);
+      for (const fileName of selectedFiles) {
 
-      const convertRes = await fetch(`${apiUrl}/satellite-images/convert`, {
-        method: 'POST',
-        body: JSON.stringify({ name: selectedFile }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+        const convertRes = await fetch(`${apiUrl}/satellite-images/convert`, {
+          method: 'POST',
+          body: JSON.stringify({ name: fileName }),
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      if (!convertRes.ok) {
-        appendLog("COG 변환 실패");
-        return;
-      }
+        if (!convertRes.ok) {
+          appendLog(`COG 변환 실패: ${fileName}`);
+          continue;
+        }
 
-      appendLog("COG 변환 성공 → 업로드 시작");
+        const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
+          method: 'POST',
+          body: JSON.stringify({ name: fileName }),
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-      const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
-        method: 'POST',
-        body: JSON.stringify({ name: selectedFile }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (uploadRes.ok) {
-        appendLog("업로드 완료");
-      } else {
-        appendLog("업로드 실패");
+        if (uploadRes.ok) {
+          appendLog(`업로드 완료 : ${fileName}`);
+        } else {
+          appendLog(`업로드 실패 : ${fileName}`);
+        }
       }
     });
   </script>
