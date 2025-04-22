@@ -1,37 +1,25 @@
 package com.app.satellite.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
-@EnableWebSecurity 
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+@EnableWebSecurity
+public class SecurityConfig {
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http
-            .csrf().disable() // CSRF 비활성화
-            .authorizeRequests()
-                .anyRequest().permitAll() // 모든 요청 허용
-            .and()
-            .cors(); // CORS 활성화
-    }
-
-    // CORS 설정
-    @Configuration
-    public static class WebConfig implements WebMvcConfigurer {
-        @Override
-        public void addCorsMappings(CorsRegistry registry) {
-
-            registry.addMapping("/**")
-                    .allowedOrigins("http://localhost:3000") 
-                    .allowedMethods("GET", "POST", "PUT")
-                    .allowedHeaders("*")
-                    .allowCredentials(true); 
-        }
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -> csrf.disable())
+            .headers(headers -> headers.frameOptions().disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(new AntPathRequestMatcher("/h2-console/**")).permitAll()
+                .anyRequest().permitAll()
+            )
+            .build();
     }
 }

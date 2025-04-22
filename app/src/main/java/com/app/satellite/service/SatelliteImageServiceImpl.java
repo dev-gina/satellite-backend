@@ -1,6 +1,10 @@
 package com.app.satellite.service;
 
 import com.app.satellite.dto.SatelliteImageDTO;
+import com.app.satellite.model.SatelliteImage;
+import com.app.satellite.repository.SatelliteImageRepository;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -15,8 +19,11 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
+@RequiredArgsConstructor
 @Service
 public class SatelliteImageServiceImpl implements SatelliteImageService {
+
+    private final SatelliteImageRepository satelliteImageRepository;
 
     @Value("${aws.access-key}")
     private String accessKeyId;
@@ -118,9 +125,18 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
     }
 
     @Override
-    public void saveMetadata(SatelliteImageDTO satelliteImageDTO) {
-        System.out.println("파일명: " + satelliteImageDTO.getName());
-        System.out.println("COG 경로: " + satelliteImageDTO.getCogPath());
+    public void saveMetadata(SatelliteImageDTO dto) {
+        SatelliteImage entity = new SatelliteImage();
+        entity.setName(dto.getName());
+        entity.setWidth(dto.getWidth());
+        entity.setHeight(dto.getHeight());
+        entity.setBandCount(dto.getBandCount());
+        entity.setUserName(dto.getUserName());
+        entity.setSequence(dto.getSequence());
+        entity.setCogPath(dto.getCogPath());
+
+        satelliteImageRepository.save(entity);
+        System.out.println("DB 저장 완료: " + dto.getName());
     }
 
     @Override
@@ -131,17 +147,11 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
 
             File downloadedFile = downloadFileFromS3(s3Client, sourceBucketName, sourceFileKey);
             String outputFilePath = convertToCogFormat(downloadedFile);
+            System.out.println("변환된 COG 파일 경로: " + outputFilePath);
 
             if (outputFilePath != null && new File(outputFilePath).exists()) {
-                String outputFileName = sourceFileKey.replace(".tiff", "-to-cog.tiff");
-
-                uploadFileToS3(s3Client, targetBucketName, targetFolderPath + outputFileName, outputFilePath);
-                satelliteImageDTO.setCogPath(outputFilePath);
-
-                saveMetadataToDatabase(satelliteImageDTO, outputFilePath);
-                uploadConvertedImageToS3(satelliteImageDTO);
             } else {
-                System.err.println("변환된 파일이 존재하지 않습니다.");
+                System.err.println("⚠️ 변환된 파일이 존재하지 않습니다.");
             }
 
         } catch (Exception e) {
@@ -190,8 +200,10 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
     }
 
     private File downloadFileFromS3(AmazonS3 s3Client, String bucketName, String fileKey) throws Exception {
+        String baseDir = System.getProperty("java.io.tmpdir");
+        File downloadedFile = new File(baseDir + File.separator + new File(fileKey).getName());
+    
         S3Object s3Object = s3Client.getObject(bucketName, fileKey);
-        File downloadedFile = new File("/tmp/" + new File(fileKey).getName());
         try (InputStream inputStream = s3Object.getObjectContent();
              FileOutputStream fos = new FileOutputStream(downloadedFile)) {
             byte[] buffer = new byte[1024];
@@ -200,38 +212,45 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
                 fos.write(buffer, 0, length);
             }
         }
+        System.out.println("다운로드 완료: " + downloadedFile.getAbsolutePath());
         return downloadedFile;
     }
+    
 
     private void uploadFileToS3(AmazonS3 s3Client, String bucketName, String fileKey, String filePath) {
         File file = new File(filePath);
+        System.out.println("S3 업로드 시도 → 파일: " + filePath + " → 경로: " + bucketName + "/" + fileKey);
         s3Client.putObject(bucketName, fileKey, file);
     }
+    
 
     private String convertToCogFormat(File inputFile) throws Exception {
-        String outputFilePath = inputFile.getAbsolutePath().replace(".tiff", "-to-cog.tiff");
-
+        String inputPath = inputFile.getAbsolutePath();
+        String outputPath = inputPath.replace(".tif", "-to-cog.tif").replace(".tiff", "-to-cog.tiff");
+    
         ProcessBuilder processBuilder = new ProcessBuilder(
-                "gdal_translate", "-of", "COG", inputFile.getAbsolutePath(), outputFilePath
+            "gdal_translate", "-of", "COG", inputPath, outputPath
         );
+    
         processBuilder.redirectErrorStream(true);
         Process process = processBuilder.start();
-
+    
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 System.out.println("[GDAL] " + line);
             }
         }
-
-        
+    
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            throw new RuntimeException("변환 실패: exit code = " + exitCode);
+            throw new RuntimeException("GDAL 변환 실패: exit code = " + exitCode);
         }
-
-        return outputFilePath;
+    
+        System.out.println("COG 변환 완료: " + outputPath);
+        return outputPath;
     }
+    
 
     private void saveMetadataToDatabase(SatelliteImageDTO satelliteImageDTO, String outputFilePath) {
         System.out.println("메타데이터 저장: " + satelliteImageDTO.getName());
