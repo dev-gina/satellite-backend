@@ -6,13 +6,19 @@ import java.util.List;
 
 public interface SatelliteImageService {
 
-    public void convertImageToCog(SatelliteImageDTO satelliteImageDTO);
+    List<SatelliteImageDTO> getFileList();
 
-    public void convertBatchImagesToCog(List<SatelliteImageDTO> satelliteImageDTOList);
+    void saveMetadata(SatelliteImageDTO satelliteImageDTO);
 
-    public SatelliteImageDTO getMetadata(Long id);
+    void convertImageToCog(SatelliteImageDTO satelliteImageDTO);
 
-    public List<SatelliteImageDTO> getFileList();
+    void convertBatchImagesToCog(List<SatelliteImageDTO> satelliteImageDTOList);
 
-    public void saveMetadata(SatelliteImageDTO satelliteImageDTO);
+    void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO);
+
+    SatelliteImageDTO getMetadata(Long id);
+
+    List<SatelliteImageDTO> getTiffSourceFilesOnly();
+
+    List<SatelliteImageDTO> getConvertedFilesOnly();
 }

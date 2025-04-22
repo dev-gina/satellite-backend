@@ -19,7 +19,7 @@
       <h2>2. 작업 수행</h2>
       <button id="saveMetadataBtn">메타데이터 저장</button>
       <button id="convertCogBtn">COG 변환</button>
-      <button id="uploadResultBtn">변환 결과 업로드</button>
+      <button id="uploadResultBtn">변환 + 업로드 (자동)</button>
     </section>
 
     <section>
@@ -31,11 +31,16 @@
   <script>
     const apiUrl = 'http://localhost:8080';
 
-    // 파일 목록 가져오기
-    document.getElementById('listFilesBtn').addEventListener('click', function() {
-      document.getElementById('resultLog').textContent = "파일 목록 가져오는 중";
+    function appendLog(message) {
+      const log = document.getElementById('resultLog');
+      log.textContent += `\n${message}`;
+    }
 
-      fetch(`${apiUrl}/satellite-images/list`)  
+    // 파일 목록 가져오기 (원본 TIFF만)
+    document.getElementById('listFilesBtn').addEventListener('click', function() {
+      document.getElementById('resultLog').textContent = "파일 목록 가져오는 중...";
+
+      fetch(`${apiUrl}/satellite-images/source-list`)
         .then(response => response.json())
         .then(fileList => {
           const fileListSelect = document.getElementById('fileList');
@@ -48,10 +53,10 @@
             fileListSelect.appendChild(option);
           });
 
-          document.getElementById('resultLog').textContent = "파일 목록 로드 완료";
+          appendLog("파일 목록 로드 완료");
         })
         .catch(() => {
-          document.getElementById('resultLog').textContent = "파일 목록 로드 실패";
+          appendLog("파일 목록 로드 실패");
         });
     });
 
@@ -60,17 +65,20 @@
       const selectedFile = document.getElementById('fileList').value;
       if (!selectedFile) return alert('파일을 선택하세요.');
 
-      document.getElementById('resultLog').textContent = `선택한 파일(${selectedFile}) 메타데이터 저장 요청 중`;
+      appendLog(`메타데이터 저장 요청 중: ${selectedFile}`);
 
       fetch(`${apiUrl}/satellite-images/metadata`, {
         method: 'POST',
         body: JSON.stringify({ name: selectedFile }),
         headers: { 'Content-Type': 'application/json' }
       })
-        .then(response => response.ok ? 
-          document.getElementById('resultLog').textContent = `파일(${selectedFile}) 메타데이터 저장 완료` :
-          document.getElementById('resultLog').textContent = "메타데이터 저장 실패"
-        );
+        .then(response => {
+          if (response.ok) {
+            appendLog(`메타데이터 저장 완료: ${selectedFile}`);
+          } else {
+            appendLog("메타데이터 저장 실패");
+          }
+        });
     });
 
     // COG 변환
@@ -78,35 +86,53 @@
       const selectedFile = document.getElementById('fileList').value;
       if (!selectedFile) return alert('파일을 선택하세요.');
 
-      document.getElementById('resultLog').textContent = `선택한 파일(${selectedFile}) COG 변환 요청 중`;
+      appendLog(`COG 변환 요청 중: ${selectedFile}`);
 
       fetch(`${apiUrl}/satellite-images/convert`, {
         method: 'POST',
-        body: JSON.stringify({ fileName: selectedFile }),
+        body: JSON.stringify({ name: selectedFile }),
         headers: { 'Content-Type': 'application/json' }
       })
-        .then(response => response.ok ? 
-          document.getElementById('resultLog').textContent = `파일(${selectedFile}) COG 변환 완료` :
-          document.getElementById('resultLog').textContent = "COG 변환 실패"
-        );
+        .then(response => {
+          if (response.ok) {
+            appendLog(`COG 변환 완료: ${selectedFile}`);
+          } else {
+            appendLog("COG 변환 실패");
+          }
+        });
     });
 
-    // 결과 업로드
-    document.getElementById('uploadResultBtn').addEventListener('click', function() {
+    // COG 변환 + 업로드 (자동 처리)
+    document.getElementById('uploadResultBtn').addEventListener('click', async function () {
       const selectedFile = document.getElementById('fileList').value;
       if (!selectedFile) return alert('파일을 선택하세요.');
 
-      document.getElementById('resultLog').textContent = `선택한 파일(${selectedFile}) 결과 업로드 요청 중`;
+      appendLog(`COG 변환 시작: ${selectedFile}`);
 
-      fetch(`${apiUrl}/satellite-images/upload`, {
+      const convertRes = await fetch(`${apiUrl}/satellite-images/convert`, {
         method: 'POST',
-        body: JSON.stringify({ fileName: selectedFile }),
+        body: JSON.stringify({ name: selectedFile }),
         headers: { 'Content-Type': 'application/json' }
-      })
-        .then(response => response.ok ? 
-          document.getElementById('resultLog').textContent = `파일(${selectedFile}) 업로드 완료` :
-          document.getElementById('resultLog').textContent = "업로드 실패"
-        );
+      });
+
+      if (!convertRes.ok) {
+        appendLog("COG 변환 실패");
+        return;
+      }
+
+      appendLog("COG 변환 성공 → 업로드 시작");
+
+      const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
+        method: 'POST',
+        body: JSON.stringify({ name: selectedFile }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (uploadRes.ok) {
+        appendLog("업로드 완료");
+      } else {
+        appendLog("업로드 실패");
+      }
     });
   </script>
 </body>
