@@ -1,0 +1,94 @@
+body {
+ font-family: 'Arial', sans-serif;
+ background-color: #f4f7fc;
+ margin: 0;
+ padding: 0;
+ color: #333;
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ height: 100vh;
+ text-align: center;
+}
+
+.container {
+ width: 800px;
+ max-width: 100%;
+}
+
+h1 {
+ background-color: #000;
+ color: white;
+ padding: 20px;
+ margin: 0;
+ text-align: center;
+}
+
+section {
+ padding: 20px;
+ margin: 20px 0;
+ background-color: white;
+ box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+ color: #333;
+ font-size: 1.5em;
+ margin-bottom: 10px;
+}
+
+button {
+ background-color: #000;
+ color: white;
+ border: none;
+ padding: 10px 20px;
+ font-size: 1em;
+ cursor: pointer;
+ margin-right: 10px;
+ transition: background-color 0.3s ease;
+}
+
+button:hover {
+ background-color: #333;
+}
+
+select {
+ width: 100%;
+ padding: 10px;
+ font-size: 1em;
+ border: 1px solid #ccc;
+ margin-top: 10px;
+ background-color: #fafafa;
+}
+
+#resultLog {
+ background-color: #f0f0f0;
+ padding: 15px;
+ font-family: 'Courier New', monospace;
+ white-space: pre-wrap;
+ word-wrap: break-word;
+ height: 150px;
+ overflow-y: auto;
+ margin-top: 10px;
+}
+
+section button {
+ margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+ section {
+   margin: 10px;
+   padding: 15px;
+ }
+
+ button {
+   width: 100%;
+   margin-top: 10px;
+   font-size: 1.2em;
+ }
+
+ select {
+   font-size: 1.1em;
+ }
+}

@@ -1,0 +1,11 @@
+spring:
+  security:
+    enabled: false
+
+aws:
+  access-key: ${AWS_ACCESS_KEY_ID}
+  secret-key: ${AWS_SECRET_ACCESS_KEY}
+  region: ap-northeast-2
+  source-bucket: dev1-apne2-pre-test-scene-bucket
+  target-bucket: dev1-apne2-pre-test-tester-bucket
+  folder-path: tester-LeeJina-1744854818/

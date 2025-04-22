@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>위성 영상 처리 서비스</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="container">
+    <h1>위성 영상 관리 시스템 - 이진아</h1>
+
+    <section>
+      <h2>1. 파일 목록 불러오기</h2>
+      <button id="listFilesBtn">S3에서 파일 목록 가져오기</button>
+      <select id="fileList" size="8"></select>
+    </section>
+
+    <section>
+      <h2>2. 작업 수행</h2>
+      <button id="saveMetadataBtn">메타데이터 저장</button>
+      <button id="convertCogBtn">COG 변환</button>
+      <button id="uploadResultBtn">변환 결과 업로드</button>
+    </section>
+
+    <section>
+      <h2>3. 결과</h2>
+      <pre id="resultLog"></pre>
+    </section>
+  </div>
+
+  <script>
+    const apiUrl = 'http://localhost:8080';
+
+    // 파일 목록 가져오기
+    document.getElementById('listFilesBtn').addEventListener('click', function() {
+      document.getElementById('resultLog').textContent = "파일 목록 가져오는 중";
+
+      fetch(`${apiUrl}/satellite-images/list`)  
+        .then(response => response.json())
+        .then(fileList => {
+          const fileListSelect = document.getElementById('fileList');
+          fileListSelect.innerHTML = '';
+
+          fileList.forEach(file => {
+            const option = document.createElement('option');
+            option.value = file.name;
+            option.textContent = file.name;
+            fileListSelect.appendChild(option);
+          });
+
+          document.getElementById('resultLog').textContent = "파일 목록 로드 완료";
+        })
+        .catch(() => {
+          document.getElementById('resultLog').textContent = "파일 목록 로드 실패";
+        });
+    });
+
+    // 메타데이터 저장
+    document.getElementById('saveMetadataBtn').addEventListener('click', function() {
+      const selectedFile = document.getElementById('fileList').value;
+      if (!selectedFile) return alert('파일을 선택하세요.');
+
+      document.getElementById('resultLog').textContent = `선택한 파일(${selectedFile}) 메타데이터 저장 요청 중`;
+
+      fetch(`${apiUrl}/satellite-images/metadata`, {
+        method: 'POST',
+        body: JSON.stringify({ name: selectedFile }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+        .then(response => response.ok ? 
+          document.getElementById('resultLog').textContent = `파일(${selectedFile}) 메타데이터 저장 완료` :
+          document.getElementById('resultLog').textContent = "메타데이터 저장 실패"
+        );
+    });
+
+    // COG 변환
+    document.getElementById('convertCogBtn').addEventListener('click', function() {
+      const selectedFile = document.getElementById('fileList').value;
+      if (!selectedFile) return alert('파일을 선택하세요.');
+
+      document.getElementById('resultLog').textContent = `선택한 파일(${selectedFile}) COG 변환 요청 중`;
+
+      fetch(`${apiUrl}/satellite-images/convert`, {
+        method: 'POST',
+        body: JSON.stringify({ fileName: selectedFile }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+        .then(response => response.ok ? 
+          document.getElementById('resultLog').textContent = `파일(${selectedFile}) COG 변환 완료` :
+          document.getElementById('resultLog').textContent = "COG 변환 실패"
+        );
+    });
+
+    // 결과 업로드
+    document.getElementById('uploadResultBtn').addEventListener('click', function() {
+      const selectedFile = document.getElementById('fileList').value;
+      if (!selectedFile) return alert('파일을 선택하세요.');
+
+      document.getElementById('resultLog').textContent = `선택한 파일(${selectedFile}) 결과 업로드 요청 중`;
+
+      fetch(`${apiUrl}/satellite-images/upload`, {
+        method: 'POST',
+        body: JSON.stringify({ fileName: selectedFile }),
+        headers: { 'Content-Type': 'application/json' }
+      })
+        .then(response => response.ok ? 
+          document.getElementById('resultLog').textContent = `파일(${selectedFile}) 업로드 완료` :
+          document.getElementById('resultLog').textContent = "업로드 실패"
+        );
+    });
+  </script>
+</body>
+</html>
