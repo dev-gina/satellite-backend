@@ -3,18 +3,14 @@ package com.app.satellite.service;
 import com.app.satellite.dto.SatelliteImageDTO;
 import com.app.satellite.model.SatelliteImage;
 import com.app.satellite.repository.SatelliteImageRepository;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.S3Object;
-import org.springframework.stereotype.Service;
-
+import com.amazonaws.services.s3.model.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,34 +43,24 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
     public List<SatelliteImageDTO> getTiffSourceFilesOnly() {
         return listFromBucket(sourceBucketName, "", null);
     }
-    
+
     private List<SatelliteImageDTO> listFromBucket(String bucketName, String prefix, String endsWithExt) {
         List<SatelliteImageDTO> fileList = new ArrayList<>();
         AmazonS3 s3Client = createS3Client();
-    
         String continuationToken = null;
+
         do {
             ListObjectsV2Request request = new ListObjectsV2Request()
                     .withBucketName(bucketName)
                     .withPrefix(prefix)
                     .withContinuationToken(continuationToken);
-    
+
             ListObjectsV2Result result = s3Client.listObjectsV2(request);
             result.getObjectSummaries().forEach(s3Object -> {
                 String key = s3Object.getKey();
                 if (!key.endsWith("/")) {
-    
-                    //확장자 체크 조건 개선
                     boolean isTiffFile = key.toLowerCase().endsWith(".tif") || key.toLowerCase().endsWith(".tiff");
-    
-                    if (endsWithExt == null) {
-                        if (isTiffFile) {
-                            SatelliteImageDTO dto = new SatelliteImageDTO();
-                            dto.setName(key);
-                            dto.setRemoteUrl(s3Client.getUrl(bucketName, key).toString());
-                            fileList.add(dto);
-                        }
-                    } else if (key.toLowerCase().endsWith(endsWithExt)) {
+                    if (endsWithExt == null && isTiffFile || (endsWithExt != null && key.toLowerCase().endsWith(endsWithExt))) {
                         SatelliteImageDTO dto = new SatelliteImageDTO();
                         dto.setName(key);
                         dto.setRemoteUrl(s3Client.getUrl(bucketName, key).toString());
@@ -82,44 +68,8 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
                     }
                 }
             });
-    
             continuationToken = result.getNextContinuationToken();
         } while (continuationToken != null);
-    
-        return fileList;
-    }
-    
-
-    @Override
-    public List<SatelliteImageDTO> getFileList() {
-        List<SatelliteImageDTO> fileList = new ArrayList<>();
-        try {
-            AmazonS3 s3Client = createS3Client();
-
-            String continuationToken = null;
-            do {
-                ListObjectsV2Request request = new ListObjectsV2Request()
-                        .withBucketName(targetBucketName)
-                        .withPrefix(targetFolderPath)
-                        .withContinuationToken(continuationToken);
-
-                ListObjectsV2Result result = s3Client.listObjectsV2(request);
-
-                result.getObjectSummaries().forEach(s3Object -> {
-                    String key = s3Object.getKey();
-                    SatelliteImageDTO dto = new SatelliteImageDTO();
-                    dto.setName(key);
-                    dto.setRemoteUrl(s3Client.getUrl(targetBucketName, key).toString());
-                    fileList.add(dto);
-                });
-
-                continuationToken = result.getNextContinuationToken();
-            } while (continuationToken != null);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("S3 파일 목록 가져오기 실패", e);
-        }
 
         return fileList;
     }
@@ -134,81 +84,86 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         entity.setUserName(dto.getUserName());
         entity.setSequence(dto.getSequence());
         entity.setCogPath(dto.getCogPath());
-
         satelliteImageRepository.save(entity);
         System.out.println("DB 저장 완료: " + dto.getName());
     }
 
     @Override
-    public void convertImageToCog(SatelliteImageDTO satelliteImageDTO) {
-        try {
-            AmazonS3 s3Client = createS3Client();
-            String sourceFileKey = satelliteImageDTO.getName();
-
-            File downloadedFile = downloadFileFromS3(s3Client, sourceBucketName, sourceFileKey);
-            String outputFilePath = convertToCogFormat(downloadedFile);
-            System.out.println("변환된 COG 파일 경로: " + outputFilePath);
-
-            if (outputFilePath != null && new File(outputFilePath).exists()) {
-            } else {
-                System.err.println("변환된 파일이 존재하지 않습니다.");
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public void convertBatchImagesToCog(List<SatelliteImageDTO> satelliteImageDTOList) {
-        throw new UnsupportedOperationException("예시 메서드");
-    }
-
-    @Override
     public void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO) {
+        long startTime = System.currentTimeMillis();
         String fullKey = satelliteImageDTO.getName();
-    
         if (fullKey == null || fullKey.isEmpty()) {
             throw new IllegalArgumentException("파일 이름이 없습니다.");
         }
-    
+
         String fileNameOnly = new File(fullKey).getName();
-        
-        String tempDir = System.getProperty("java.io.tmpdir"); 
-        String cogFilePath = tempDir + fileNameOnly.replace(".tiff", "-to-cog.tiff");
-    
-        File cogFile = new File(cogFilePath);
-        if (!cogFile.exists()) {
-            throw new RuntimeException("변환된 COG 파일이 존재하지 않습니다: " + cogFilePath);
-        }
-    
+        String baseName = fileNameOnly.replace(".tiff", "").replace(".tif", "");
         AmazonS3 s3Client = createS3Client();
-        String targetKey = targetFolderPath + fileNameOnly.replace(".tiff", "-to-cog.tiff");
-    
-        uploadFileToS3(s3Client, targetBucketName, targetKey, cogFilePath);
-    
-        System.out.println("업로드 성공: " + targetKey);
+        String userFolder = targetFolderPath + satelliteImageDTO.getUserName() + "/";
+        int nextSeq = getNextSequenceNumber(s3Client, userFolder, baseName);
+        String cogFileName = baseName + "_to_cog_" + nextSeq + ".tiff";
+        String tempDir = System.getProperty("java.io.tmpdir");
+        String cogFilePath = tempDir + cogFileName;
+        String targetKey = userFolder + cogFileName;
+
+        try {
+            File inputFile = downloadFileFromS3(s3Client, sourceBucketName, fullKey);
+            convertToCogFormat(inputFile, cogFilePath);
+
+            File cogFile = new File(cogFilePath);
+            if (!cogFile.exists()) {
+                throw new RuntimeException("변환된 COG 파일이 존재하지 않습니다: " + cogFilePath);
+            }
+
+            uploadFileToS3(s3Client, targetBucketName, targetKey, cogFilePath);
+            System.out.println("총 처리 시간: " + (System.currentTimeMillis() - startTime) / 1000 + "초");
+            System.out.println("업로드 성공: " + targetKey);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("COG 변환 및 업로드 중 오류 발생: " + e.getMessage(), e);
+        }
     }
-    
 
     @Override
-    public SatelliteImageDTO getMetadata(Long id) {
-        throw new UnsupportedOperationException("Unimplemented method 'getMetadata'");
+    public void convertBatchImagesToCog(List<SatelliteImageDTO> list) {
+        long startTime = System.currentTimeMillis();
+        long timeLimit = 15 * 60 * 1000;
+
+        for (SatelliteImageDTO dto : list) {
+            if (System.currentTimeMillis() - startTime > timeLimit) {
+                throw new RuntimeException("전체 변환 시간이 15분을 초과했습니다.");
+            }
+            uploadConvertedImageToS3(dto);
+        }
     }
 
-    private AmazonS3 createS3Client() {
-        BasicAWSCredentials awsCredentials = new BasicAWSCredentials(accessKeyId, secretAccessKey);
-        return AmazonS3ClientBuilder.standard()
-                .withRegion(region)
-                .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
-                .build();
+    private void convertToCogFormat(File inputFile, String outputPath) throws Exception {
+        ProcessBuilder processBuilder = new ProcessBuilder(
+            "gdal_translate", "-of", "COG", inputFile.getAbsolutePath(), outputPath
+        );
+        processBuilder.redirectErrorStream(true);
+        Process process = processBuilder.start();
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println("[GDAL] " + line);
+            }
+        }
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            throw new RuntimeException("GDAL 변환 실패: exit code = " + exitCode);
+        }
+        System.out.println("COG 변환 완료: " + outputPath);
     }
 
     private File downloadFileFromS3(AmazonS3 s3Client, String bucketName, String fileKey) throws Exception {
         String baseDir = System.getProperty("java.io.tmpdir");
         File downloadedFile = new File(baseDir + File.separator + new File(fileKey).getName());
-    
         S3Object s3Object = s3Client.getObject(bucketName, fileKey);
+
         try (InputStream inputStream = s3Object.getObjectContent();
              FileOutputStream fos = new FileOutputStream(downloadedFile)) {
             byte[] buffer = new byte[1024];
@@ -220,47 +175,44 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         System.out.println("다운로드 완료: " + downloadedFile.getAbsolutePath());
         return downloadedFile;
     }
-    
-
-    private String convertToCogFormat(File inputFile) throws Exception {
-        String inputPath = inputFile.getAbsolutePath();
-        String outputPath = inputPath.replace(".tif", "-to-cog.tif").replace(".tiff", "-to-cog.tiff");
-    
-        ProcessBuilder processBuilder = new ProcessBuilder(
-            "gdal_translate", "-of", "COG", inputPath, outputPath
-        );
-    
-        processBuilder.redirectErrorStream(true);
-        Process process = processBuilder.start();
-    
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println("[GDAL] " + line);
-            }
-        }
-    
-        int exitCode = process.waitFor();
-        if (exitCode != 0) {
-            throw new RuntimeException("GDAL 변환 실패: exit code = " + exitCode);
-        }
-    
-        System.out.println("COG 변환 완료: " + outputPath);
-        return outputPath;
-    }
 
     private void uploadFileToS3(AmazonS3 s3Client, String bucketName, String fileKey, String filePath) {
-        File file = new File(filePath); 
-        s3Client.putObject(bucketName, fileKey, file);     
-        System.out.println("S3 업로드 완료!");
+        File file = new File(filePath);
+        s3Client.putObject(bucketName, fileKey, file);
+        System.out.println("S3 업로드 완료");
     }
 
-    private void saveMetadataToDatabase(SatelliteImageDTO satelliteImageDTO, String outputFilePath) {
-        System.out.println("메타데이터 저장: " + satelliteImageDTO.getName());
+    private int getNextSequenceNumber(AmazonS3 s3Client, String userFolder, String baseName) {
+        int maxSeq = 0;
+        ListObjectsV2Request request = new ListObjectsV2Request()
+                .withBucketName(targetBucketName)
+                .withPrefix(userFolder + baseName + "_to_cog_");
+
+        ListObjectsV2Result result = s3Client.listObjectsV2(request);
+        for (S3ObjectSummary summary : result.getObjectSummaries()) {
+            String key = summary.getKey();
+            String[] parts = key.split("_to_cog_");
+            if (parts.length == 2) {
+                String seqPart = parts[1].replace(".tiff", "").replace(".tif", "");
+                try {
+                    int seq = Integer.parseInt(seqPart);
+                    if (seq > maxSeq) maxSeq = seq;
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return maxSeq + 1;
+    }
+
+    private AmazonS3 createS3Client() {
+        BasicAWSCredentials awsCredentials = new BasicAWSCredentials(accessKeyId, secretAccessKey);
+        return AmazonS3ClientBuilder.standard()
+                .withRegion(region)
+                .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
+                .build();
     }
 
     @Override
-    public List<SatelliteImageDTO> getConvertedFilesOnly() {
-        throw new UnsupportedOperationException("Unimplemented method 'getConvertedFilesOnly'");
+    public SatelliteImageDTO getMetadata(Long id) {
+        throw new UnsupportedOperationException("조회 기능은 아직 구현되지 않음");
     }
 }

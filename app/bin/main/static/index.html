@@ -25,7 +25,7 @@
 
     <section>
       <h2>3. 결과</h2>
-      <pre id="resultLog"></pre>
+      <div id="resultLog"></div>
     </section>
   </div>
 
@@ -37,7 +37,6 @@
       log.textContent += `\n${message}`;
     }
 
-    // 체크박스로 파일 목록 그려주기
     function renderCheckboxFileList(fileList) {
       const container = document.getElementById('fileCheckboxList');
       container.innerHTML = '';
@@ -63,15 +62,12 @@
       document.getElementById('selectedCount').textContent = `선택된 파일: ${count}개`;
     }
 
-    // 선택된 파일 이름 배열로 가져오기
     function getSelectedFiles() {
       const checkboxes = document.querySelectorAll('#fileCheckboxList input[type="checkbox"]:checked');
       return Array.from(checkboxes).map(cb => cb.value);
     }
 
-    // 파일 목록 가져오기
     document.getElementById('listFilesBtn').addEventListener('click', function() {
-
       fetch(`${apiUrl}/satellite-images/source-list`)
         .then(response => response.json())
         .then(fileList => {
@@ -83,13 +79,11 @@
         });
     });
 
-    // 메타데이터 저장
     document.getElementById('saveMetadataBtn').addEventListener('click', async function() {
       const selectedFiles = getSelectedFiles();
       if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
       for (const fileName of selectedFiles) {
-
         const response = await fetch(`${apiUrl}/satellite-images/metadata`, {
           method: 'POST',
           body: JSON.stringify({ name: fileName }),
@@ -104,66 +98,65 @@
       }
     });
 
-    // COG 변환
     document.getElementById('convertCogBtn').addEventListener('click', async function() {
       const selectedFiles = getSelectedFiles();
       if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
       for (const fileName of selectedFiles) {
-          appendLog(`COG 변환 중입니다. 잠시만 기다려주세요😎 (${fileName})`);
-          await new Promise(r => setTimeout(r, 100));
+        const processingLine = document.createElement('div');
+        processingLine.textContent = `COG 변환 중입니다. (${fileName})`;
+        processingLine.style.color = '#999';
+        document.getElementById('resultLog').appendChild(processingLine);
 
-          const response = await fetch(`${apiUrl}/satellite-images/convert`, {
-            method: 'POST',
-            body: JSON.stringify({ name: fileName }),
-            headers: { 'Content-Type': 'application/json' }
-          });
+        const start = performance.now();
+        const response = await fetch(`${apiUrl}/satellite-images/upload`, {
+          method: 'POST',
+          body: JSON.stringify({ name: fileName }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const end = performance.now();
+        const elapsed = ((end - start) / 1000).toFixed(2);
 
-          if (response.ok) {
-            appendLog(`COG 변환 완료: ${fileName}`);
-          } else {
-            appendLog(`COG 변환 실패: ${fileName}`);
-          }
-        }
+        const line = document.createElement('div');
+        line.textContent = response.ok
+          ? `COG 변환 완료: ${fileName} (${elapsed}초)`
+          : `COG 변환 실패: ${fileName}`;
+        line.style.color = response.ok ? '#39FF14' : '#FF4C4C';
+        document.getElementById('resultLog').appendChild(line);
+      }
     });
 
-    // 변환 + 업로드 (자동)
+
     document.getElementById('uploadResultBtn').addEventListener('click', async function () {
-    const selectedFiles = getSelectedFiles();
-    if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
+      const selectedFiles = getSelectedFiles();
+      if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
-    for (const fileName of selectedFiles) {
-      // 1. 업로드 중 메시지 먼저 출력
-      appendLog(`업로드 중입니다. 잠시만 기다려주세요😎 (${fileName})`);
-      await new Promise(r => setTimeout(r, 100)); // 렌더링 시간 확보
+      for (const fileName of selectedFiles) {
 
-      // 2. 변환 요청
-      const convertRes = await fetch(`${apiUrl}/satellite-images/convert`, {
-        method: 'POST',
-        body: JSON.stringify({ name: fileName }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+        const processingLine = document.createElement('div');
+        processingLine.textContent = `업로드 중입니다. (${fileName})`;
+        processingLine.style.color = '#999';
+        document.getElementById('resultLog').appendChild(processingLine);
 
-      if (!convertRes.ok) {
-        appendLog(`COG 변환 실패: ${fileName}`);
-        continue;
+        await new Promise(r => setTimeout(r, 100)); 
+
+        const start = performance.now();
+        const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
+          method: 'POST',
+          body: JSON.stringify({ name: fileName }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const end = performance.now();
+        const elapsed = ((end - start) / 1000).toFixed(2);
+
+        const resultLine = document.createElement('div');
+        resultLine.textContent = uploadRes.ok
+          ? `업로드 완료: ${fileName} (${elapsed}초)`
+          : `업로드 실패: ${fileName}`;
+        resultLine.style.color = uploadRes.ok ? '#39FF14' : '#FF4C4C';
+        document.getElementById('resultLog').appendChild(resultLine);
       }
-
-      // 3. 업로드 요청
-      const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
-        method: 'POST',
-        body: JSON.stringify({ name: fileName }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      // 4. 결과 출력
-      if (uploadRes.ok) {
-        appendLog(`업로드 완료: ${fileName}`);
-      } else {
-        appendLog(`업로드 실패: ${fileName}`);
-      }
-    }
-  });
+    });
 
   </script>
 </body>
