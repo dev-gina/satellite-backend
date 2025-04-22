@@ -110,52 +110,61 @@
       if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
       for (const fileName of selectedFiles) {
+          appendLog(`COG 변환 중입니다. 잠시만 기다려주세요😎 (${fileName})`);
+          await new Promise(r => setTimeout(r, 100));
 
-        const response = await fetch(`${apiUrl}/satellite-images/convert`, {
-          method: 'POST',
-          body: JSON.stringify({ name: fileName }),
-          headers: { 'Content-Type': 'application/json' }
-        });
+          const response = await fetch(`${apiUrl}/satellite-images/convert`, {
+            method: 'POST',
+            body: JSON.stringify({ name: fileName }),
+            headers: { 'Content-Type': 'application/json' }
+          });
 
-        if (response.ok) {
-          appendLog(`COG 변환 완료: ${fileName}`);
-        } else {
-          appendLog(`COG 변환 실패: ${fileName}`);
+          if (response.ok) {
+            appendLog(`COG 변환 완료: ${fileName}`);
+          } else {
+            appendLog(`COG 변환 실패: ${fileName}`);
+          }
         }
-      }
     });
 
     // 변환 + 업로드 (자동)
     document.getElementById('uploadResultBtn').addEventListener('click', async function () {
-      const selectedFiles = getSelectedFiles();
-      if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
+    const selectedFiles = getSelectedFiles();
+    if (selectedFiles.length === 0) return alert('파일을 선택하세요.');
 
-      for (const fileName of selectedFiles) {
+    for (const fileName of selectedFiles) {
+      // 1. 업로드 중 메시지 먼저 출력
+      appendLog(`업로드 중입니다. 잠시만 기다려주세요😎 (${fileName})`);
+      await new Promise(r => setTimeout(r, 100)); // 렌더링 시간 확보
 
-        const convertRes = await fetch(`${apiUrl}/satellite-images/convert`, {
-          method: 'POST',
-          body: JSON.stringify({ name: fileName }),
-          headers: { 'Content-Type': 'application/json' }
-        });
+      // 2. 변환 요청
+      const convertRes = await fetch(`${apiUrl}/satellite-images/convert`, {
+        method: 'POST',
+        body: JSON.stringify({ name: fileName }),
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-        if (!convertRes.ok) {
-          appendLog(`COG 변환 실패: ${fileName}`);
-          continue;
-        }
-
-        const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
-          method: 'POST',
-          body: JSON.stringify({ name: fileName }),
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (uploadRes.ok) {
-          appendLog(`업로드 완료 : ${fileName}`);
-        } else {
-          appendLog(`업로드 실패 : ${fileName}`);
-        }
+      if (!convertRes.ok) {
+        appendLog(`COG 변환 실패: ${fileName}`);
+        continue;
       }
-    });
+
+      // 3. 업로드 요청
+      const uploadRes = await fetch(`${apiUrl}/satellite-images/upload`, {
+        method: 'POST',
+        body: JSON.stringify({ name: fileName }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      // 4. 결과 출력
+      if (uploadRes.ok) {
+        appendLog(`업로드 완료: ${fileName}`);
+      } else {
+        appendLog(`업로드 실패: ${fileName}`);
+      }
+    }
+  });
+
   </script>
 </body>
 </html>

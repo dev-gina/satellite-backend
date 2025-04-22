@@ -64,7 +64,7 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
                 String key = s3Object.getKey();
                 if (!key.endsWith("/")) {
     
-                    // 🔥 확장자 체크 조건 개선
+                    //확장자 체크 조건 개선
                     boolean isTiffFile = key.toLowerCase().endsWith(".tif") || key.toLowerCase().endsWith(".tiff");
     
                     if (endsWithExt == null) {
@@ -151,7 +151,7 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
 
             if (outputFilePath != null && new File(outputFilePath).exists()) {
             } else {
-                System.err.println("⚠️ 변환된 파일이 존재하지 않습니다.");
+                System.err.println("변환된 파일이 존재하지 않습니다.");
             }
 
         } catch (Exception e) {
@@ -167,24 +167,29 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
     @Override
     public void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO) {
         String fullKey = satelliteImageDTO.getName();
-
+    
         if (fullKey == null || fullKey.isEmpty()) {
             throw new IllegalArgumentException("파일 이름이 없습니다.");
         }
-
-        String fileNameOnly = new File(fullKey).getName();  // 디렉토리 제거함
-        String cogFilePath = "/tmp/" + fileNameOnly.replace(".tiff", "-to-cog.tiff");
-
+    
+        String fileNameOnly = new File(fullKey).getName();
+        
+        String tempDir = System.getProperty("java.io.tmpdir"); 
+        String cogFilePath = tempDir + fileNameOnly.replace(".tiff", "-to-cog.tiff");
+    
         File cogFile = new File(cogFilePath);
         if (!cogFile.exists()) {
             throw new RuntimeException("변환된 COG 파일이 존재하지 않습니다: " + cogFilePath);
         }
-
+    
         AmazonS3 s3Client = createS3Client();
         String targetKey = targetFolderPath + fileNameOnly.replace(".tiff", "-to-cog.tiff");
-
+    
         uploadFileToS3(s3Client, targetBucketName, targetKey, cogFilePath);
+    
+        System.out.println("업로드 성공: " + targetKey);
     }
+    
 
     @Override
     public SatelliteImageDTO getMetadata(Long id) {
@@ -217,13 +222,6 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
     }
     
 
-    private void uploadFileToS3(AmazonS3 s3Client, String bucketName, String fileKey, String filePath) {
-        File file = new File(filePath);
-        System.out.println("S3 업로드 시도 → 파일: " + filePath + " → 경로: " + bucketName + "/" + fileKey);
-        s3Client.putObject(bucketName, fileKey, file);
-    }
-    
-
     private String convertToCogFormat(File inputFile) throws Exception {
         String inputPath = inputFile.getAbsolutePath();
         String outputPath = inputPath.replace(".tif", "-to-cog.tif").replace(".tiff", "-to-cog.tiff");
@@ -250,7 +248,12 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         System.out.println("COG 변환 완료: " + outputPath);
         return outputPath;
     }
-    
+
+    private void uploadFileToS3(AmazonS3 s3Client, String bucketName, String fileKey, String filePath) {
+        File file = new File(filePath); 
+        s3Client.putObject(bucketName, fileKey, file);     
+        System.out.println("S3 업로드 완료!");
+    }
 
     private void saveMetadataToDatabase(SatelliteImageDTO satelliteImageDTO, String outputFilePath) {
         System.out.println("메타데이터 저장: " + satelliteImageDTO.getName());
