@@ -18,9 +18,9 @@
 
     <section>
       <h2>2. 작업 수행 (순서대로 눌러주세요)</h2>
-      <button id="saveMetadataBtn">메타데이터 저장</button>
-      <button id="convertCogBtn">COG 변환</button>
-      <button id="uploadResultBtn">변환 + 업로드</button>
+      <button id="saveMetadataBtn">① 메타데이터 저장</button>
+      <button id="convertCogBtn">② COG 변환</button>
+      <button id="uploadResultBtn">③ 변환 결과 업로드</button>
     </section>
 
     <section>
@@ -169,21 +169,19 @@
     });
 
     document.getElementById('loadMetadataBtn').addEventListener('click', async function () {
-      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const keyword = document.getElementById('searchInput').value.trim();
 
       try {
-        const response = await fetch(`${apiUrl}/satellite-images/metadata`);
+        const url = keyword
+          ? `${apiUrl}/satellite-images/search?name=${encodeURIComponent(keyword)}`
+          : `${apiUrl}/satellite-images/search`;
+
+        const response = await fetch(url);
         if (!response.ok) throw new Error('조회 실패');
 
         const metadataList = await response.json();
-        
-        const filtered = keyword
-          ? metadataList.filter(md => md.name.toLowerCase().includes(keyword))
-          : metadataList;
-
-        const formatted = filtered.length
-          ? filtered.map(md =>
-              `파일명: ${md.name}, 크기: ${md.width}x${md.height}`).join('\n')
+        const formatted = metadataList.length
+          ? metadataList.map(md => `파일명: ${md.name}, 크기: ${md.width}x${md.height}`).join('\n')
           : '검색 결과 없음';
 
         document.getElementById('metadataResult').textContent = formatted;
@@ -196,6 +194,7 @@
         document.getElementById('metadataResult').textContent = '조회 중 오류 발생';
       }
     });
+
 
   </script>
 </body>

@@ -84,46 +84,60 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         entity.setUserName(dto.getUserName());
         entity.setSequence(dto.getSequence());
         entity.setCogPath(dto.getCogPath());
+
+        // +1 시퀀스 증가 넣어주기
+        int sequence = satelliteImageRepository.countByName(dto.getName());
+        entity.setSequence(sequence);
+
         satelliteImageRepository.save(entity);
         System.out.println("DB 저장 완료: " + dto.getName());
     }
 
     @Override
-    public void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO) {
+    public void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO, boolean isBatch) {
         long startTime = System.currentTimeMillis();
         String fullKey = satelliteImageDTO.getName();
         if (fullKey == null || fullKey.isEmpty()) {
             throw new IllegalArgumentException("파일 이름이 없습니다.");
         }
-
+    
         String fileNameOnly = new File(fullKey).getName();
         String baseName = fileNameOnly.replace(".tiff", "").replace(".tif", "");
         AmazonS3 s3Client = createS3Client();
         String userFolder = targetFolderPath + satelliteImageDTO.getUserName() + "/";
         int nextSeq = getNextSequenceNumber(s3Client, userFolder, baseName);
-        String cogFileName = baseName + "_to_cog_" + nextSeq + ".tiff";
+        String cogFileName = baseName + "-to-cog-" + nextSeq + ".tiff";
         String tempDir = System.getProperty("java.io.tmpdir");
         String cogFilePath = tempDir + cogFileName;
         String targetKey = userFolder + cogFileName;
-
+    
+        // 다건일 떄 버킷 고정시키기
+        String bucketName = isBatch ? "dev1-apne2-pre-test-tester-bucket" : targetBucketName;
+    
         try {
             File inputFile = downloadFileFromS3(s3Client, sourceBucketName, fullKey);
             convertToCogFormat(inputFile, cogFilePath);
-
+    
             File cogFile = new File(cogFilePath);
             if (!cogFile.exists()) {
                 throw new RuntimeException("변환된 COG 파일이 존재하지 않습니다: " + cogFilePath);
             }
-
-            uploadFileToS3(s3Client, targetBucketName, targetKey, cogFilePath);
+    
+            uploadFileToS3(s3Client, bucketName, targetKey, cogFilePath);
             System.out.println("총 처리 시간: " + (System.currentTimeMillis() - startTime) / 1000 + "초");
             System.out.println("업로드 성공: " + targetKey);
-
+    
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("COG 변환 및 업로드 중 오류 발생: " + e.getMessage(), e);
         }
     }
+
+    @Override
+    public void uploadConvertedImageToS3(SatelliteImageDTO dto) {
+        uploadConvertedImageToS3(dto, false);
+    }
+    
 
     @Override
     public void convertBatchImagesToCog(List<SatelliteImageDTO> list) {
@@ -134,7 +148,7 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
             if (System.currentTimeMillis() - startTime > timeLimit) {
                 throw new RuntimeException("전체 변환 시간이 15분을 초과했습니다.");
             }
-            uploadConvertedImageToS3(dto);
+            uploadConvertedImageToS3(dto, true);
         }
     }
 

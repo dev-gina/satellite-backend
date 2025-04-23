@@ -9,6 +9,8 @@ public interface SatelliteImageService {
 
     public void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO);
 
+    public void uploadConvertedImageToS3(SatelliteImageDTO satelliteImageDTO, boolean isBatch);
+
     public void convertBatchImagesToCog(List<SatelliteImageDTO> satelliteImageDTOList);
 
     public List<SatelliteImageDTO> getTiffSourceFilesOnly();

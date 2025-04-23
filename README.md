@@ -1,20 +1,13 @@
 # 위성 영상 처리 백엔드 - 이진아
 
-## 1. 프로젝트 설명
-- S3에 저장된 원본 TIFF 영상을 COG (Cloud Optimized GeoTIFF) 포맷으로 변환하고, 그 결과를 S3 버킷에 업로드
-- 변환, 업로드, 메타데이터 저장까지 처리할 수 있는 간단한 관리 시스템
+## 1. 프로젝트 개요
+- S3에 저장된 원본 TIFF 영상을 COG (Cloud Optimized GeoTIFF) 포맷으로 변환
+- 관련 메타데이터를 DB에 저장시키고, 변환된 영상을 S3에 업로드
+- 단건/다건 변환 처리 기능, 메타데이터 조회 및 검색 기능 제공
 
 ---
 
-## 2. 주요 역할
-- AWS S3에서 파일 리스트 조회
-- GDAL을 활용한 COG 변환 처리
-- 변환된 영상 업로드
-- 메타데이터 DB 저장 (JPA 사용)
-
----
-
-## 3. 기술 스택
+## 2. 기술 스택
 - Java 17
 - Spring Boot 3
 - AWS S3 SDK
@@ -24,14 +17,14 @@
 
 ---
 
-## 4. 프로젝트 구조
+## 3. 프로젝트 구조
 - `Controller` : REST API 엔드포인트 정의
 - `Service` : 비즈니스 로직 처리 (S3 접근, GDAL 변환 등)
 - `Repository` : DB 접근 처리
 
 ---
 
-## 5. 실행 방법
+## 4. 실행 방법
 ```bash
 ./gradlew bootRun
 ```
@@ -44,17 +37,21 @@ aws s3 ls s3://dev1-apne2-pre-test-tester-bucket/tester-LeeJina-1744854818/
 
 ---
 
-## 6. API 요약
+## 5. API 요약
 
-| 기능             | URL                                  | 메서드  | 설명                          |
-|------------------|--------------------------------------|--------|-------------------------------|
-| 파일 목록 조회    | `/satellite-images/source-list`      | GET    | 원본 TIFF 리스트 조회          |
-| 메타데이터 저장   | `/satellite-images/metadata`         | POST   | DB에 메타데이터 저장           |
-| 변환 + 업로드     | `/satellite-images/upload`           | POST   | GDAL로 COG 변환 후 S3 업로드  |
+| 기능              | URL                                   | 메서드 | 설명                         |
+|-------------------|----------------------------------------|--------|------------------------------|
+| S3 파일 조회       | `/satellite-images/source-list`        | GET    | S3에서 TIFF 파일 목록 조회   |
+| 메타데이터 저장    | `/satellite-images/metadata`           | POST   | DB에 메타데이터 저장         |
+| COG 변환 + 업로드 | `/satellite-images/upload`             | POST   | GDAL 변환 + S3 업로드        |
+| 메타데이터 조회    | `/satellite-images/metadata/{id}`      | GET    | ID로 메타데이터 조회         |
+| 메타데이터 검색    | `/satellite-images/search`             | GET    | 요청 조건에 따라 검색        |
+
+
 
 ---
 
-## 7. 예상 면접 질문
+## 6. 예상 면접 질문
 
 1. COG 변환을 어떻게 처리했나요? (GDAL 사용 방식 및 처리 흐름)
 → GDAL의 CLI 도구를 활용해 처리했습니다.
@@ -74,11 +71,11 @@ aws s3 ls s3://dev1-apne2-pre-test-tester-bucket/tester-LeeJina-1744854818/
 
 ---
 
-## 8. 아키텍쳐 흐름
+## 7. 아키텍쳐 흐름
 1. 위성 사진을 변환하는 프로그램 개발
 
 - 원본 위성 영상 파일이 S3(아마존 저장소)에 저장되어 있음
-- 그 파일을 "COG"라는 특별한 포맷으로 변환해야함
+- 그 파일을 "COG"라는 특별한 포맷으로 변환
 
 2. 변환한 파일을 다른 S3 저장소에 다시 올려야함
 - 변환한 이미지를 정해진 규칙 이름으로 다시 저장
@@ -89,13 +86,13 @@ ex. testscene-to-cog-1.tiff
 - H2 데이터베이스에 사용하여 관리
 
 4. API를 만들어야함
-- 단 건 변환 API : 한장만 변환
-- 다건 변환 API : 여러장 변환
+- 단 건 변환 API : 한건만 변환
+- 다건 변환 API : 다건 변환
 - 메타데이터 조회 API : 변환된 파일 정보를 검색/조회 가능
 
 ---
 
-## 9. 클라우드 배포 시 아키텍처 설계
+## 8. 클라우드 배포 시 아키텍처 설계 (예상)
 만약 이 서비스를 Public Cloud(AWS 등)에 배포한다면?
 - 사용자는 API를 호출합니다 (예: 파일 목록 조회, 변환 요청).
 - API Gateway가 요청을 받아 Spring Boot 서버로 전달합니다.

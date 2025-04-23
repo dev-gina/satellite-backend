@@ -55,4 +55,14 @@ public class SatelliteImageController {
         return ResponseEntity.ok(satelliteImageService.getMetadata(id));
     }
 
+    // 6. 검색 기능 확장
+    @GetMapping("/search")
+    public ResponseEntity<List<SatelliteImageDTO>> searchMetadata(
+        @RequestParam(required = false) String name,
+        @RequestParam(required = false) Integer width,
+        @RequestParam(required = false) Integer bandCount
+    ) {
+        return ResponseEntity.ok(satelliteImageService.searchMetadata(name, width, bandCount));
+    }
+
 }

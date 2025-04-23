@@ -7,6 +7,9 @@ import com.app.satellite.model.SatelliteImage;
 public interface SatelliteImageRepository extends JpaRepository<SatelliteImage, Long> {
 
      // 이름 검색 기능
-     List<SatelliteImage> findByNameContainingIgnoreCase(String name);
+     public List<SatelliteImage> findByNameContainingIgnoreCase(String name);
+
+     // 시퀀스 증가
+     public int countByName(String name);
 
 }
