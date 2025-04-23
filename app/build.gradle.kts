@@ -22,8 +22,8 @@ dependencies {
     compileOnly("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    implementation("org.springdoc:springdoc-openapi-ui:1.6.9")
     implementation("com.amazonaws:aws-java-sdk-s3:1.12.263")
+    implementation("org.springdoc:springdoc-openapi-ui:1.6.15")
 }
 
 tasks.withType<Test> {
