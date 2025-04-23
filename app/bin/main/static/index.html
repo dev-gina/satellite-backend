@@ -17,7 +17,7 @@
     </section>
 
     <section>
-      <h2>2. 작업 수행</h2>
+      <h2>2. 작업 수행 (순서대로 눌러주세요)</h2>
       <button id="saveMetadataBtn">메타데이터 저장</button>
       <button id="convertCogBtn">COG 변환</button>
       <button id="uploadResultBtn">변환 + 업로드</button>
@@ -26,6 +26,16 @@
     <section>
       <h2>3. 결과</h2>
       <div id="resultLog"></div>
+    </section>
+
+    <section>
+      <h2>4. 메타데이터 조회 및 검색</h2>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="파일명 검색어 입력">
+        <button id="loadMetadataBtn">메타데이터 불러오기</button>
+      </div>
+      <p id="searchKeywordDisplay"></p>
+      <pre id="metadataResult"></pre>
     </section>
   </div>
 
@@ -155,6 +165,35 @@
           : `업로드 실패: ${fileName}`;
         resultLine.style.color = uploadRes.ok ? '#39FF14' : '#FF4C4C';
         document.getElementById('resultLog').appendChild(resultLine);
+      }
+    });
+
+    document.getElementById('loadMetadataBtn').addEventListener('click', async function () {
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+
+      try {
+        const response = await fetch(`${apiUrl}/satellite-images/metadata`);
+        if (!response.ok) throw new Error('조회 실패');
+
+        const metadataList = await response.json();
+        
+        const filtered = keyword
+          ? metadataList.filter(md => md.name.toLowerCase().includes(keyword))
+          : metadataList;
+
+        const formatted = filtered.length
+          ? filtered.map(md =>
+              `파일명: ${md.name}, 크기: ${md.width}x${md.height}`).join('\n')
+          : '검색 결과 없음';
+
+        document.getElementById('metadataResult').textContent = formatted;
+        document.getElementById('searchKeywordDisplay').textContent =
+            keyword ? `검색어: "${keyword}"에 대한 결과` : '전체 메타데이터 표시 중';
+        appendLog("메타데이터 조회 성공");
+
+      } catch (err) {
+        appendLog("메타데이터 조회 실패");
+        document.getElementById('metadataResult').textContent = '조회 중 오류 발생';
       }
     });
 

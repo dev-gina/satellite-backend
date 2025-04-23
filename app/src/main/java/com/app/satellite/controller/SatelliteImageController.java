@@ -28,6 +28,13 @@ public class SatelliteImageController {
         return ResponseEntity.ok().build();
     }
 
+    // 2-1. 조건 검색용 메타 데이터 조회
+    @GetMapping("/metadata")
+    public ResponseEntity<List<SatelliteImageDTO>> searchMetadata(
+        @RequestParam(required = false) String name) {
+        return ResponseEntity.ok(satelliteImageService.searchMetadata(name, null, null));
+    }
+
     // 3. 변환 + 업로드 (단건)
     @PostMapping("/upload")
     public ResponseEntity<Void> uploadConvertedImage(@RequestBody SatelliteImageDTO dto) {
@@ -47,4 +54,5 @@ public class SatelliteImageController {
     public ResponseEntity<SatelliteImageDTO> getMetadata(@PathVariable Long id) {
         return ResponseEntity.ok(satelliteImageService.getMetadata(id));
     }
+
 }

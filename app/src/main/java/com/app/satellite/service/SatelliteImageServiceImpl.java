@@ -213,6 +213,40 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
 
     @Override
     public SatelliteImageDTO getMetadata(Long id) {
-        throw new UnsupportedOperationException("조회 기능은 아직 구현되지 않음");
+        SatelliteImage entity = satelliteImageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("해당 ID의 메타데이터가 존재하지 않습니다: " + id));
+    
+        SatelliteImageDTO dto = new SatelliteImageDTO();
+        dto.setName(entity.getName());
+        dto.setWidth(entity.getWidth());
+        dto.setHeight(entity.getHeight());
+        dto.setBandCount(entity.getBandCount());
+        dto.setUserName(entity.getUserName());
+        dto.setSequence(entity.getSequence());
+        dto.setCogPath(entity.getCogPath());
+        dto.setRemoteUrl(null);
+    
+        return dto;
     }
+
+    @Override
+    public List<SatelliteImageDTO> searchMetadata(String name, Integer width, Integer bandCount) {
+        List<SatelliteImage> entities = satelliteImageRepository.findByNameContainingIgnoreCase(name);
+
+        return entities.stream()
+            .map(entity -> {
+                SatelliteImageDTO dto = new SatelliteImageDTO();
+                dto.setName(entity.getName());
+                dto.setWidth(entity.getWidth());
+                dto.setHeight(entity.getHeight());
+                dto.setBandCount(entity.getBandCount());
+                dto.setUserName(entity.getUserName());
+                dto.setSequence(entity.getSequence());
+                dto.setCogPath(entity.getCogPath());
+                dto.setRemoteUrl(null);
+                return dto;
+            })
+            .toList();
+    }
+
 }

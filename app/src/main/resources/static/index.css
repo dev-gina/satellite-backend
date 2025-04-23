@@ -10,12 +10,11 @@ body {
   color: #111;
   display: flex;
   justify-content: center;
-  padding: 40px 0;
+  padding: 40px 16px;
 }
 
 .container {
   width: 100%;
-
   max-width: 800px;
   background: #fff;
   padding: 30px 40px;
@@ -55,7 +54,6 @@ button {
   font-size: 1rem;
   border-radius: 6px;
   cursor: pointer;
-  margin-right: 10px;
   transition: background-color 0.2s;
 }
 
@@ -63,11 +61,36 @@ button:hover {
   background-color: #333;
 }
 
+/* 검색바 정렬 */
+.search-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.search-bar input[type="text"] {
+  flex: 1;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  height: 42px;
+}
+
+#loadMetadataBtn {
+  height: 42px;
+}
+
+#searchKeywordDisplay {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 10px;
+}
+
 /* 체크박스 리스트 */
 #fileCheckboxList {
   display: flex;
   flex-direction: column;
-  height: 160px;
   gap: 8px;
   max-height: 250px;
   overflow-y: auto;
@@ -109,7 +132,7 @@ button:hover {
   color: #ccc;
   padding: 15px;
   font-family: monospace;
-  font-size: 1rem;
+  font-size: 0.95rem;
   height: 160px;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -118,15 +141,46 @@ button:hover {
   text-align: left;
 }
 
+#resultLog div::before {
+  content: '[로그] ';
+  font-weight: bold;
+  color: #aaa;
+}
+
+#resultLog .success::before {
+  content: '[성공] ';
+  color: #39FF14;
+}
+
+#resultLog .fail::before {
+  content: '[실패] ';
+  color: #FF4C4C;
+}
+
+/* 메타데이터 결과 */
+#metadataResult {
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  line-height: 1.5;
+}
+
 /* 반응형 */
 @media (max-width: 768px) {
   .container {
     padding: 20px;
   }
 
+  .search-bar {
+    flex-direction: column;
+  }
+
   button {
-    display: block;
     width: 100%;
-    margin-bottom: 10px;
+    margin-top: 10px;
   }
 }
