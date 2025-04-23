@@ -42,7 +42,7 @@ public class SatelliteImageController {
         return ResponseEntity.ok().build();
     }
 
-    // 4. 변환 + 업로드 ()
+    // 4. 변환 + 업로드 (다건)
     @PostMapping("/upload-batch")
     public ResponseEntity<Void> uploadBatch(@RequestBody List<SatelliteImageDTO> list) {
         satelliteImageService.convertBatchImagesToCog(list);
