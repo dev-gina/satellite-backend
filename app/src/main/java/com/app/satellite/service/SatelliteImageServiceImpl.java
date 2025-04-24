@@ -82,15 +82,14 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         entity.setHeight(dto.getHeight());
         entity.setBandCount(dto.getBandCount());
         entity.setUserName(dto.getUserName());
-        entity.setSequence(dto.getSequence());
         entity.setCogPath(dto.getCogPath());
-
-        // +1 시퀀스 증가 넣어주기
-        int sequence = satelliteImageRepository.countByName(dto.getName());
+    
+        // 시퀀스 +1 증가
+        int sequence = satelliteImageRepository.countByName(dto.getName()) + 1;
         entity.setSequence(sequence);
-
+    
         satelliteImageRepository.save(entity);
-        System.out.println("DB 저장 완료: " + dto.getName());
+        System.out.println("DB 저장 완료: " + dto.getName() + " / 시퀀스: " + sequence);
     }
 
     @Override
@@ -105,8 +104,7 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         String baseName = fileNameOnly.replace(".tiff", "").replace(".tif", "");
         AmazonS3 s3Client = createS3Client();
         String userFolder = targetFolderPath + satelliteImageDTO.getUserName() + "/";
-        int nextSeq = getNextSequenceNumber(s3Client, userFolder, baseName);
-        String cogFileName = baseName + "-to-cog-" + nextSeq + ".tiff";
+        String cogFileName = baseName + "-to-cog-" + satelliteImageDTO.getSequence() + ".tiff";
         String tempDir = System.getProperty("java.io.tmpdir");
         String cogFilePath = tempDir + cogFileName;
         String targetKey = userFolder + cogFileName;
@@ -194,27 +192,6 @@ public class SatelliteImageServiceImpl implements SatelliteImageService {
         File file = new File(filePath);
         s3Client.putObject(bucketName, fileKey, file);
         System.out.println("S3 업로드 완료");
-    }
-
-    private int getNextSequenceNumber(AmazonS3 s3Client, String userFolder, String baseName) {
-        int maxSeq = 0;
-        ListObjectsV2Request request = new ListObjectsV2Request()
-                .withBucketName(targetBucketName)
-                .withPrefix(userFolder + baseName + "_to_cog_");
-
-        ListObjectsV2Result result = s3Client.listObjectsV2(request);
-        for (S3ObjectSummary summary : result.getObjectSummaries()) {
-            String key = summary.getKey();
-            String[] parts = key.split("_to_cog_");
-            if (parts.length == 2) {
-                String seqPart = parts[1].replace(".tiff", "").replace(".tif", "");
-                try {
-                    int seq = Integer.parseInt(seqPart);
-                    if (seq > maxSeq) maxSeq = seq;
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        return maxSeq + 1;
     }
 
     private AmazonS3 createS3Client() {
